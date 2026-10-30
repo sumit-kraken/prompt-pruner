@@ -1,0 +1,22 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ONNX & Model weight binaries (>100MB blocked by GitHub)
+*.onnx
+llmlingua2_onnx/model.onnx
+llmlingua2_onnx/onnx/
+
+# Hugging Face and download caches
+.cache/
+*.metadata
+
+# Environments
+venv/
+.venv/
+env/
+.env
+
+# Duplicate subfolder (if not needed)
+antigravity-pruner/

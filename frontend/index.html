@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prompt Pruning & LLM Acceleration Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-dark: #0a0d14;
+      --bg-card: rgba(18, 24, 38, 0.75);
+      --bg-card-hover: rgba(24, 32, 50, 0.85);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(99, 102, 241, 0.5);
+      --accent-indigo: #6366f1;
+      --accent-cyan: #06b6d4;
+      --accent-emerald: #10b981;
+      --accent-emerald-bg: rgba(16, 185, 129, 0.15);
+      --accent-emerald-border: rgba(16, 185, 129, 0.35);
+      --accent-rose: #f43f5e;
+      --accent-rose-bg: rgba(244, 63, 94, 0.12);
+      --accent-rose-border: rgba(244, 63, 94, 0.3);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.1) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.06) 0px, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    header {
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(10, 13, 20, 0.8);
+      backdrop-filter: blur(16px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent-indigo), var(--accent-cyan));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+    }
+
+    .brand-icon svg {
+      width: 22px;
+      height: 22px;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 2;
+    }
+
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #ffffff, #cbd5e1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .header-badges {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+    }
+
+    .status-badge.active {
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.3);
+      color: #34d399;
+    }
+
+    .status-badge.gpu {
+      background: rgba(99, 102, 241, 0.12);
+      border-color: rgba(99, 102, 241, 0.35);
+      color: #a5b4fc;
+    }
+
+    .status-badge.webgpu-ready {
+      background: rgba(6, 182, 212, 0.12);
+      border-color: rgba(6, 182, 212, 0.35);
+      color: #38bdf8;
+    }
+
+    .status-indicator-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      max-width: 1600px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 1.75rem 2rem 3rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.75rem;
+    }
+
+    /* 4-Card HUD Metrics */
+    .hud-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.25rem;
+    }
+
+    @media (max-width: 1024px) {
+      .hud-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .hud-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .hud-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .hud-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+    }
+
+    .hud-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--card-accent, var(--accent-indigo)), transparent);
+      opacity: 0.8;
+    }
+
+    .hud-card[data-type="total"] { --card-accent: #94a3b8; }
+    .hud-card[data-type="pruned"] { --card-accent: var(--accent-rose); }
+    .hud-card[data-type="saved"] { --card-accent: var(--accent-emerald); }
+    .hud-card[data-type="latency"] { --card-accent: var(--accent-cyan); }
+
+    .hud-label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .hud-val-wrap {
+      display: flex;
+      align-items: baseline;
+      gap: 0.35rem;
+    }
+
+    .hud-value {
+      font-size: 2.1rem;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      letter-spacing: -0.03em;
+      color: #fff;
+    }
+
+    .hud-card[data-type="pruned"] .hud-value { color: #fb7185; }
+    .hud-card[data-type="saved"] .hud-value { color: #34d399; }
+    .hud-card[data-type="latency"] .hud-value { color: #38bdf8; }
+
+    .hud-unit {
+      font-size: 0.95rem;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    .hud-desc {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+
+    /* Controls Bar */
+    .controls-panel {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .controls-row-top {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 1.25rem;
+      align-items: center;
+    }
+
+    @media (max-width: 900px) {
+      .controls-row-top {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .query-box-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .field-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #queryInput {
+      width: 100%;
+      background: rgba(10, 14, 24, 0.7);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      color: var(--text-main);
+      font-size: 0.95rem;
+      font-family: var(--font-sans);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    #queryInput:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
+
+    .slider-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      min-width: 220px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #threshVal {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--accent-cyan);
+      font-size: 0.85rem;
+      background: rgba(6, 182, 212, 0.12);
+      padding: 0.15rem 0.5rem;
+      border-radius: 6px;
+      border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+
+    #threshRange {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 9999px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    #threshRange::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.7);
+      transition: transform 0.1s;
+    }
+
+    #threshRange::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+
+    .btn-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.4rem;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+      outline: none;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #4f46e5, #06b6d4);
+      color: #ffffff;
+      box-shadow: 0 4px 16px rgba(79, 70, 229, 0.35);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #4338ca, #0891b2);
+      box-shadow: 0 6px 20px rgba(79, 70, 229, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active {
+      transform: translateY(1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-subtle);
+      color: var(--text-main);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.09);
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    .controls-row-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding-top: 0.9rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .presets-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .preset-pill {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 0.3rem 0.7rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .preset-pill:hover, .preset-pill.active {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: rgba(99, 102, 241, 0.4);
+      color: #cbd5e1;
+    }
+
+    /* Engine Switcher */
+    .engine-section-wrap {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    .engine-toggle-group {
+      display: inline-flex;
+      background: rgba(10, 14, 24, 0.8);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 3px;
+      gap: 4px;
+    }
+
+    .engine-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 7px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .engine-btn:hover {
+      color: #fff;
+    }
+
+    .engine-btn.active {
+      background: rgba(99, 102, 241, 0.25);
+      color: #fff;
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+    }
+
+    .engine-btn[data-engine="webgpu"].active {
+      background: rgba(6, 182, 212, 0.25);
+      color: #38bdf8;
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
+    }
+
+    .engine-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .model-selector-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .model-select {
+      background: rgba(10, 14, 24, 0.7);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 0.4rem 0.85rem;
+      color: var(--text-main);
+      font-size: 0.8rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* Phase 2: Query Conditioning Styles */
+    .phase2-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.25rem;
+      background: rgba(99, 102, 241, 0.06);
+      border: 1px solid rgba(99, 102, 241, 0.22);
+      border-radius: 12px;
+      padding: 0.85rem 1.25rem;
+      flex-wrap: wrap;
+      transition: all 0.2s ease;
+    }
+
+    .phase2-bar:hover {
+      border-color: rgba(6, 182, 212, 0.4);
+      background: rgba(99, 102, 241, 0.09);
+    }
+
+    .phase2-toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .phase2-switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      cursor: pointer;
+    }
+
+    .phase2-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .phase2-slider-track {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.12);
+      transition: 0.25s ease;
+      border-radius: 9999px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .phase2-slider-track::before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 2px;
+      bottom: 2px;
+      background-color: #94a3b8;
+      transition: 0.25s ease;
+      border-radius: 50%;
+    }
+
+    .phase2-switch input:checked + .phase2-slider-track {
+      background: linear-gradient(135deg, var(--accent-indigo), var(--accent-cyan));
+      border-color: rgba(6, 182, 212, 0.5);
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
+    }
+
+    .phase2-switch input:checked + .phase2-slider-track::before {
+      transform: translateX(20px);
+      background-color: #ffffff;
+    }
+
+    .phase2-label-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .phase2-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #e2e8f0;
+      letter-spacing: -0.01em;
+    }
+
+    .phase2-subtitle {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+
+    .phase2-slider-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      min-width: 220px;
+      flex: 1;
+      max-width: 320px;
+    }
+
+    .weight-badge {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--accent-indigo);
+      font-size: 0.8rem;
+      background: rgba(99, 102, 241, 0.15);
+      padding: 0.1rem 0.45rem;
+      border-radius: 6px;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+    }
+
+    .shader-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      padding: 0.35rem 0.8rem;
+      border-radius: 8px;
+      background: rgba(6, 182, 212, 0.12);
+      border: 1px solid rgba(6, 182, 212, 0.35);
+      color: #38bdf8;
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.2);
+    }
+
+    .shader-badge.idle {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: var(--border-subtle);
+      color: var(--text-muted);
+      box-shadow: none;
+    }
+
+    /* WebGPU Progress Bar */
+    .webgpu-progress-card {
+      background: rgba(6, 182, 212, 0.08);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      margin-top: 0.5rem;
+    }
+
+    .webgpu-progress-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      font-family: var(--font-mono);
+      color: #38bdf8;
+    }
+
+    .webgpu-progress-track {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .webgpu-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-indigo), var(--accent-cyan));
+      border-radius: 9999px;
+      transition: width 0.15s ease;
+      box-shadow: 0 0 8px rgba(6, 182, 212, 0.8);
+    }
+
+    /* Side-by-Side Dual Pane */
+    .panes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      align-items: stretch;
+    }
+
+    @media (max-width: 1024px) {
+      .panes-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .pane-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 480px;
+    }
+
+    .pane-header {
+      padding: 0.9rem 1.25rem;
+      background: rgba(10, 14, 24, 0.5);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .pane-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .pane-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .pane-tool-btn {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 0.25rem 0.55rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .pane-tool-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+    }
+
+    .legend-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.75rem;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .legend-chip {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+    }
+
+    .legend-chip.kept {
+      background: var(--accent-emerald);
+      box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+    }
+
+    .legend-chip.pruned {
+      background: var(--accent-rose);
+      box-shadow: 0 0 6px rgba(244, 63, 94, 0.5);
+    }
+
+    /* Left Pane: Textarea */
+    .pane-body {
+      flex: 1;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    #rawContext {
+      width: 100%;
+      height: 100%;
+      min-height: 400px;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #e2e8f0;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      line-height: 1.6;
+      resize: none;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    #rawContext::-webkit-scrollbar,
+    #diffOutput::-webkit-scrollbar,
+    #llmResponse::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    #rawContext::-webkit-scrollbar-thumb,
+    #diffOutput::-webkit-scrollbar-thumb,
+    #llmResponse::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+    }
+
+    /* Right Pane: Diff Output */
+    #diffOutput {
+      flex: 1;
+      height: 100%;
+      min-height: 400px;
+      max-height: 520px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-word;
+      user-select: text;
+    }
+
+    .diff-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      min-height: 380px;
+      color: var(--text-dim);
+      text-align: center;
+      gap: 0.75rem;
+    }
+
+    .diff-placeholder svg {
+      width: 48px;
+      height: 48px;
+      stroke: var(--text-dim);
+      fill: none;
+    }
+
+    /* Token styling */
+    .token-kept {
+      display: inline-block;
+      background: var(--accent-emerald-bg);
+      color: #6ee7b7;
+      border: 1px solid var(--accent-emerald-border);
+      border-radius: 4px;
+      padding: 0.05rem 0.25rem;
+      margin: 0.08rem 0.05rem;
+      font-weight: 500;
+      transition: all 0.15s ease;
+      cursor: help;
+      position: relative;
+    }
+
+    .token-kept:hover {
+      background: rgba(16, 185, 129, 0.3);
+      border-color: #10b981;
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+      z-index: 10;
+    }
+
+    .token-pruned {
+      display: inline-block;
+      background: var(--accent-rose-bg);
+      color: #fda4af;
+      border: 1px solid var(--accent-rose-border);
+      border-radius: 4px;
+      padding: 0.05rem 0.25rem;
+      margin: 0.08rem 0.05rem;
+      text-decoration: line-through;
+      text-decoration-color: #f43f5e;
+      text-decoration-thickness: 1.5px;
+      opacity: 0.65;
+      transition: all 0.15s ease;
+      cursor: help;
+      position: relative;
+    }
+
+    .token-pruned:hover {
+      opacity: 1;
+      background: rgba(244, 63, 94, 0.28);
+      border-color: #f43f5e;
+      color: #ffe4e6;
+      box-shadow: 0 0 10px rgba(244, 63, 94, 0.4);
+      z-index: 10;
+    }
+
+    /* Floating Tooltip */
+    #tokenTooltip {
+      position: fixed;
+      display: none;
+      pointer-events: none;
+      z-index: 9999;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--border-focus);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
+      border-radius: 8px;
+      padding: 0.5rem 0.75rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: #e2e8f0;
+      backdrop-filter: blur(10px);
+      max-width: 280px;
+    }
+
+    .tooltip-title {
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.25rem;
+    }
+
+    .tooltip-score {
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    /* LLM Streaming Response Section */
+    .response-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      margin-top: 0.5rem;
+    }
+
+    .response-header {
+      padding: 0.9rem 1.25rem;
+      background: rgba(10, 14, 24, 0.5);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .response-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .response-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .stream-status-badge {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    .stream-status-badge.streaming {
+      background: rgba(6, 182, 212, 0.15);
+      color: #38bdf8;
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    #llmResponse {
+      padding: 1.5rem;
+      min-height: 180px;
+      max-height: 500px;
+      overflow-y: auto;
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      line-height: 1.7;
+      color: #f1f5f9;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: rgba(10, 14, 24, 0.3);
+    }
+
+    .response-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 150px;
+      color: var(--text-dim);
+      text-align: center;
+      gap: 0.5rem;
+      font-size: 0.88rem;
+    }
+
+    .cursor-blink {
+      display: inline-block;
+      width: 8px;
+      height: 16px;
+      background: var(--accent-cyan);
+      margin-left: 2px;
+      vertical-align: middle;
+      animation: blink 1s step-end infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    /* Footer */
+    footer {
+      padding: 1.25rem 2rem;
+      border-top: 1px solid var(--border-subtle);
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      background: rgba(10, 13, 20, 0.6);
+    }
+
+    /* Loading Spinner */
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand-wrap">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+        </svg>
+      </div>
+      <div>
+        <h1 class="brand-title">Prompt Pruning &amp; Acceleration Studio</h1>
+        <p class="brand-subtitle">ONNX Runtime LLMLingua-2 Token Pruner &bull; Ollama + WebGPU Dual Runtimes</p>
+      </div>
+    </div>
+    <div class="header-badges">
+      <span id="providerBadge" class="status-badge gpu">
+        <span class="status-indicator-dot"></span>
+        <span id="providerText">CUDA RTX 5060 Accelerated</span>
+      </span>
+      <span id="ollamaBadge" class="status-badge active">
+        <span class="status-indicator-dot"></span>
+        <span id="ollamaText">Ollama Connected</span>
+      </span>
+      <span id="webgpuBadge" class="status-badge webgpu-ready">
+        <span class="status-indicator-dot"></span>
+        <span id="webgpuText">WebGPU Supported</span>
+      </span>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+
+    <!-- 4-Card Metric HUD -->
+    <section class="hud-grid" aria-label="HUD Metrics">
+      <div class="hud-card" data-type="total">
+        <div class="hud-label">
+          <span>Original Tokens</span>
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+        </div>
+        <div class="hud-val-wrap">
+          <span id="statTotal" class="hud-value">0</span>
+          <span class="hud-unit">tok</span>
+        </div>
+        <div class="hud-desc">Input sequence length before pruning</div>
+      </div>
+
+      <div class="hud-card" data-type="pruned">
+        <div class="hud-label">
+          <span>Tokens Pruned</span>
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </div>
+        <div class="hud-val-wrap">
+          <span id="statPruned" class="hud-value">0</span>
+          <span class="hud-unit">tok</span>
+        </div>
+        <div class="hud-desc">Tokens evicted below threshold</div>
+      </div>
+
+      <div class="hud-card" data-type="saved">
+        <div class="hud-label">
+          <span>Saved Footprint</span>
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+        </div>
+        <div class="hud-val-wrap">
+          <span id="statSaved" class="hud-value">0.0</span>
+          <span class="hud-unit">%</span>
+        </div>
+        <div class="hud-desc">Context window reduction ratio</div>
+      </div>
+
+      <div class="hud-card" data-type="latency">
+        <div class="hud-label">
+          <span>Backend Latency</span>
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <div class="hud-val-wrap">
+          <span id="statLatency" class="hud-value">0.0</span>
+          <span class="hud-unit">ms</span>
+        </div>
+        <div class="hud-desc">ONNX Runtime GPU forward pass</div>
+      </div>
+    </section>
+
+    <!-- Controls Panel -->
+    <section class="controls-panel">
+      <div class="controls-row-top">
+        <div class="query-box-wrap">
+          <label class="field-label" for="queryInput">
+            <span>Query / Diagnostic Task</span>
+            <span style="font-size:0.75rem; font-weight:400; color:var(--text-dim);">Passed to LLM along with pruned context</span>
+          </label>
+          <input 
+            type="text" 
+            id="queryInput" 
+            placeholder="e.g. What caused the auth failure and which class and line threw the exception?" 
+            value="What caused the authentication validation failure, which class and line threw NullPointerException, and what happened to the Redis connection?"
+          />
+        </div>
+
+        <div class="slider-wrap">
+          <div class="slider-header">
+            <span class="field-label" for="threshRange">Sensitivity Threshold</span>
+            <span id="threshVal">0.50</span>
+          </div>
+          <input type="range" id="threshRange" min="0.1" max="0.9" step="0.05" value="0.5" />
+        </div>
+
+        <div class="btn-group">
+          <button id="pruneOnlyBtn" class="btn btn-secondary" title="Prune and update visual diff without calling LLM">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242L10.757 5.5M7 17l-4 4"/></svg>
+            Prune Only
+          </button>
+          <button id="runBtn" class="btn btn-primary" title="Prune prompt and stream answer from selected runtime">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Prune &amp; Run LLM
+          </button>
+        </div>
+      </div>
+
+      <!-- Phase 2: Query-Conditioned Pruning (WebGPU Shader) Row -->
+      <div class="phase2-bar">
+        <div class="phase2-toggle-wrap">
+          <label class="phase2-switch">
+            <input type="checkbox" id="queryConditionToggle" checked />
+            <span class="phase2-slider-track"></span>
+          </label>
+          <div class="phase2-label-wrap">
+            <span class="phase2-title">⚡ Query-Conditioned Pruning (Phase 2)</span>
+            <span class="phase2-subtitle">Cross-attention WebGPU shader boosts query-relevant context</span>
+          </div>
+        </div>
+
+        <div class="phase2-slider-wrap" id="queryWeightWrap">
+          <div class="slider-header" style="gap: 0.5rem;">
+            <span class="field-label" for="queryWeightRange">Query Weight (1 - α)</span>
+            <span id="queryWeightVal" class="weight-badge">0.50</span>
+          </div>
+          <input type="range" id="queryWeightRange" min="0.0" max="1.0" step="0.05" value="0.5" />
+        </div>
+
+        <div class="phase2-status-wrap">
+          <span id="shaderLatencyBadge" class="shader-badge idle">
+            <span class="status-indicator-dot"></span>
+            <span id="shaderLatencyText">WebGPU Shader: Ready</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="controls-row-bottom">
+        <div class="presets-wrap">
+          <span class="field-label" style="margin-right: 0.25rem;">Sample Logs:</span>
+          <button type="button" class="preset-pill active" data-preset="auth">OAuth2 NullPointer</button>
+          <button type="button" class="preset-pill" data-preset="k8s">Kubernetes OOMKilled</button>
+          <button type="button" class="preset-pill" data-preset="db">Database Pool Starvation</button>
+        </div>
+
+        <div class="engine-section-wrap">
+          <!-- Engine Selector -->
+          <div class="engine-switch-wrap" style="display:flex; align-items:center; gap:0.5rem;">
+            <span class="field-label">Engine:</span>
+            <div class="engine-toggle-group">
+              <button type="button" class="engine-btn active" id="engineOllamaBtn" data-engine="ollama">
+                <span class="engine-dot"></span> Ollama (Native)
+              </button>
+              <button type="button" class="engine-btn" id="engineWebGpuBtn" data-engine="webgpu">
+                <span class="engine-dot"></span> ⚡ WebGPU (In-Browser)
+              </button>
+            </div>
+          </div>
+
+          <!-- Target Model Selector -->
+          <div class="model-selector-wrap">
+            <span class="field-label">Target Model:</span>
+            <select id="modelSelect" class="model-select">
+              <option value="llama3.2:latest">llama3.2:latest (Active)</option>
+              <option value="qwen2.5:7b">qwen2.5:7b</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- WebGPU Progress Card (shows while model weights are downloading/loading into browser) -->
+      <div id="webgpuProgressCard" class="webgpu-progress-card" style="display: none;">
+        <div class="webgpu-progress-header">
+          <span id="webgpuProgressText">Initializing WebGPU pipeline...</span>
+          <span id="webgpuProgressPct">0%</span>
+        </div>
+        <div class="webgpu-progress-track">
+          <div id="webgpuProgressBar" class="webgpu-progress-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Side-by-Side View -->
+    <section class="panes-grid">
+      <!-- Left: Raw Context -->
+      <div class="pane-card">
+        <div class="pane-header">
+          <div class="pane-title">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Original Prompt / Diagnostic Log
+          </div>
+          <div class="pane-actions">
+            <button id="clearContextBtn" class="pane-tool-btn">Clear</button>
+            <button id="pasteSampleBtn" class="pane-tool-btn">Reset Sample</button>
+          </div>
+        </div>
+        <div class="pane-body">
+          <textarea id="rawContext" spellcheck="false" placeholder="Paste your verbose logs, stack traces, or context here..."></textarea>
+        </div>
+      </div>
+
+      <!-- Right: Token Diff Output -->
+      <div class="pane-card">
+        <div class="pane-header">
+          <div class="pane-title">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            Token Removal Diff
+          </div>
+          <div class="legend-wrap">
+            <span class="legend-item"><span class="legend-chip kept"></span> Retained Token</span>
+            <span class="legend-item"><span class="legend-chip pruned"></span> Evicted Token</span>
+            <button id="copyCompressedBtn" class="pane-tool-btn" style="margin-left: 0.5rem;">Copy Pruned Text</button>
+          </div>
+        </div>
+        <div class="pane-body">
+          <div id="diffOutput">
+            <div class="diff-placeholder">
+              <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              <div>Click <strong>"Prune &amp; Run LLM"</strong> or <strong>"Prune Only"</strong> to visualize real-time token pruning.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LLM Streaming Response Output -->
+    <section class="response-card">
+      <div class="response-header">
+        <div class="response-title-wrap">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+          <div class="response-title">Accelerated LLM Streaming Response</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.6rem;">
+          <span id="streamStatusBadge" class="stream-status-badge">Idle</span>
+          <button id="copyResponseBtn" class="pane-tool-btn">Copy Response</button>
+        </div>
+      </div>
+      <div id="llmResponse">
+        <div class="response-placeholder">
+          LLM response generated from the pruned context will stream here in real time.
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Floating Tooltip -->
+  <div id="tokenTooltip">
+    <div id="tooltipWord" class="tooltip-title">Token</div>
+    <div>Status: <span id="tooltipStatus" style="font-weight:600;"></span></div>
+    <div>Retention Score: <span id="tooltipScore" class="tooltip-score">0.000</span></div>
+    <div style="color:var(--text-dim); margin-top:2px;">Span: <span id="tooltipSpan"></span></div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    Prompt Pruning &amp; Acceleration Studio &bull; Built with FastAPI, ONNX Runtime (CUDA / CPU), LLMLingua-2, Ollama &amp; WebGPU
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
